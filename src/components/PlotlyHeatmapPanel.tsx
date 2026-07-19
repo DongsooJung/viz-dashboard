@@ -1,29 +1,31 @@
+import { useEffect, useState } from 'react'
 import Plot from '../lib/plotly'
-import { heatmapDistricts, heatmapQuarters, heatmapZ } from '../data/sample'
+import { fetchJSON, type GuHeatmap } from '../lib/seoulData'
 
-// Plotly: 자치구 × 분기 가격 변동률 히트맵
-// Plotly의 강점(인터랙티브 hover, 컬러스케일, 줌)을 보여주는 예시.
+// Plotly: 자치구(거래량 상위 8) × 최근 6개월 아파트 거래량 히트맵 — 실거래
 export default function PlotlyHeatmapPanel() {
+  const [hm, setHm] = useState<GuHeatmap | null>(null)
+  useEffect(() => {
+    fetchJSON<GuHeatmap>('gu_heatmap.json').then(setHm).catch(() => setHm(null))
+  }, [])
+
+  if (!hm) return <div className="loading">실거래 데이터 불러오는 중…</div>
+
   return (
     <Plot
       data={[
         {
           type: 'heatmap',
-          x: heatmapQuarters,
-          y: heatmapDistricts,
-          z: heatmapZ,
+          x: hm.months,
+          y: hm.districts,
+          z: hm.z,
           colorscale: [
-            [0, '#f778ba'],
-            [0.5, '#161b22'],
-            [1, '#3fb950'],
+            [0, '#0f2018'],
+            [0.5, '#1f8f5f'],
+            [1, '#63d6a0'],
           ],
-          zmid: 0,
-          hovertemplate: '%{y} · %{x}<br>변동률 %{z}%<extra></extra>',
-          colorbar: {
-            title: { text: '%', side: 'right' },
-            tickfont: { color: '#8b949e' },
-            outlinewidth: 0,
-          },
+          hovertemplate: '%{y} · %{x}<br>거래 %{z}건<extra></extra>',
+          colorbar: { title: { text: '건', side: 'right' }, tickfont: { color: '#8b949e' }, outlinewidth: 0 },
         },
       ]}
       layout={{

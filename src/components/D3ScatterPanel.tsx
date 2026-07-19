@@ -1,115 +1,75 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
-import { scatterData } from '../data/sample'
+import { fetchJSON, type GuPrices } from '../lib/seoulData'
 
-// D3: 접근성 vs 평단가 산점도 + OLS 회귀선 (헤도닉 관계 시각화)
-// D3의 강점(축·스케일·직접 SVG 제어)을 보여주는 예시.
+interface Pt { ko: string; price: number; yoy: number }
+
+// D3: 자치구별 평단가(x) vs 전년 대비 변동률(y) + OLS 회귀선 — 실거래
+// "고가 지역이 더 올랐나?" 헤도닉 관계를 실데이터로 진단.
 export default function D3ScatterPanel() {
   const ref = useRef<SVGSVGElement | null>(null)
+  const [pts, setPts] = useState<Pt[]>([])
 
   useEffect(() => {
-    const width = 560
-    const height = 300
-    const margin = { top: 16, right: 20, bottom: 40, left: 52 }
-    const iw = width - margin.left - margin.right
-    const ih = height - margin.top - margin.bottom
+    fetchJSON<GuPrices>('gu_prices.json')
+      .then((d) => setPts(Object.values(d.districts).map((r) => ({ ko: r.ko, price: r.price, yoy: r.yoy }))))
+      .catch(() => setPts([]))
+  }, [])
 
+  useEffect(() => {
+    if (!pts.length) return
+    const width = 560, height = 300
+    const margin = { top: 16, right: 20, bottom: 40, left: 52 }
+    const iw = width - margin.left - margin.right, ih = height - margin.top - margin.bottom
     const svg = d3.select(ref.current)
     svg.selectAll('*').remove()
     svg.attr('viewBox', `0 0 ${width} ${height}`)
-
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
-    const x = d3
-      .scaleLinear()
-      .domain(d3.extent(scatterData, (d) => d.accessibility) as [number, number])
-      .nice()
-      .range([0, iw])
-    const y = d3
-      .scaleLinear()
-      .domain(d3.extent(scatterData, (d) => d.price) as [number, number])
-      .nice()
-      .range([ih, 0])
+    const x = d3.scaleLinear().domain(d3.extent(pts, (d) => d.price) as [number, number]).nice().range([0, iw])
+    const y = d3.scaleLinear().domain(d3.extent(pts, (d) => d.yoy) as [number, number]).nice().range([ih, 0])
 
-    // 격자 + 축
-    g.append('g')
-      .attr('transform', `translate(0,${ih})`)
-      .call(d3.axisBottom(x).ticks(6).tickSize(-ih))
-      .call((sel) => sel.select('.domain').remove())
-      .selectAll('line')
-      .attr('stroke', '#21262d')
-    g.append('g')
-      .call(d3.axisLeft(y).ticks(6).tickSize(-iw))
-      .call((sel) => sel.select('.domain').remove())
-      .selectAll('line')
-      .attr('stroke', '#21262d')
+    g.append('g').attr('transform', `translate(0,${ih})`)
+      .call(d3.axisBottom(x).ticks(6).tickSize(-ih)).call((s) => s.select('.domain').remove())
+      .selectAll('line').attr('stroke', '#21262d')
+    g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(-iw)).call((s) => s.select('.domain').remove())
+      .selectAll('line').attr('stroke', '#21262d')
     g.selectAll('text').attr('fill', '#8b949e').attr('font-size', 11)
 
-    // 축 라벨
-    g.append('text')
-      .attr('x', iw / 2)
-      .attr('y', ih + 34)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#8b949e')
-      .attr('font-size', 12)
-      .text('교통 접근성 지표')
-    g.append('text')
-      .attr('transform', 'rotate(-90)')
-      .attr('x', -ih / 2)
-      .attr('y', -40)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#8b949e')
-      .attr('font-size', 12)
-      .text('평단가 (만원)')
+    // y=0 기준선
+    g.append('line').attr('x1', 0).attr('x2', iw).attr('y1', y(0)).attr('y2', y(0))
+      .attr('stroke', '#3a4a6b').attr('stroke-width', 1)
 
-    // OLS 회귀선 계산
-    const n = scatterData.length
-    const sx = d3.sum(scatterData, (d) => d.accessibility)
-    const sy = d3.sum(scatterData, (d) => d.price)
-    const sxy = d3.sum(scatterData, (d) => d.accessibility * d.price)
-    const sxx = d3.sum(scatterData, (d) => d.accessibility * d.accessibility)
+    g.append('text').attr('x', iw / 2).attr('y', ih + 34).attr('text-anchor', 'middle')
+      .attr('fill', '#8b949e').attr('font-size', 12).text('평단가 (만원/평)')
+    g.append('text').attr('transform', 'rotate(-90)').attr('x', -ih / 2).attr('y', -40)
+      .attr('text-anchor', 'middle').attr('fill', '#8b949e').attr('font-size', 12).text('전년 대비 변동률 (%)')
+
+    // OLS
+    const n = pts.length
+    const sx = d3.sum(pts, (d) => d.price), sy = d3.sum(pts, (d) => d.yoy)
+    const sxy = d3.sum(pts, (d) => d.price * d.yoy), sxx = d3.sum(pts, (d) => d.price * d.price)
     const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx)
     const intercept = (sy - slope * sx) / n
     const xd = x.domain()
-
     g.append('line')
-      .attr('x1', x(xd[0]))
-      .attr('y1', y(intercept + slope * xd[0]))
-      .attr('x2', x(xd[1]))
-      .attr('y2', y(intercept + slope * xd[1]))
-      .attr('stroke', '#f778ba')
-      .attr('stroke-width', 2)
-      .attr('stroke-dasharray', '6 4')
+      .attr('x1', x(xd[0])).attr('y1', y(intercept + slope * xd[0]))
+      .attr('x2', x(xd[1])).attr('y2', y(intercept + slope * xd[1]))
+      .attr('stroke', '#f778ba').attr('stroke-width', 2).attr('stroke-dasharray', '6 4')
 
-    // 데이터 포인트 (진입 애니메이션)
-    g.selectAll('circle')
-      .data(scatterData)
-      .join('circle')
-      .attr('cx', (d) => x(d.accessibility))
-      .attr('cy', (d) => y(d.price))
-      .attr('fill', '#58a6ff')
-      .attr('fill-opacity', 0.8)
-      .attr('stroke', '#0d1117')
-      .attr('stroke-width', 1)
-      .attr('r', 0)
-      .append('title')
-      .text((d) => `${d.region}\n접근성 ${d.accessibility} · ${d.price.toLocaleString()}만원`)
+    g.selectAll('circle').data(pts).join('circle')
+      .attr('cx', (d) => x(d.price)).attr('cy', (d) => y(d.yoy))
+      .attr('fill', (d) => (d.yoy >= 0 ? '#3fb950' : '#f778ba')).attr('fill-opacity', 0.85)
+      .attr('stroke', '#0d1117').attr('stroke-width', 1).attr('r', 0)
+      .append('title').text((d) => `${d.ko}\n평단가 ${d.price.toLocaleString()}만원 · ${d.yoy > 0 ? '+' : ''}${d.yoy}%`)
+    g.selectAll('circle').transition().duration(600).delay((_, i) => i * 22).attr('r', 6)
 
-    g.selectAll('circle')
-      .transition()
-      .duration(600)
-      .delay((_, i) => i * 25)
-      .attr('r', 6)
+    const r2sign = slope >= 0 ? '+' : ''
+    g.append('text').attr('x', iw - 4).attr('y', 14).attr('text-anchor', 'end')
+      .attr('fill', '#f778ba').attr('font-size', 12)
+      .text(`ŷ = ${intercept.toFixed(1)} ${r2sign}${(slope * 1000).toFixed(2)}·(천만원)`)
+  }, [pts])
 
-    // 회귀식 주석
-    g.append('text')
-      .attr('x', iw - 4)
-      .attr('y', 14)
-      .attr('text-anchor', 'end')
-      .attr('fill', '#f778ba')
-      .attr('font-size', 12)
-      .text(`ŷ = ${intercept.toFixed(0)} + ${slope.toFixed(1)}·x`)
-  }, [])
-
-  return <svg ref={ref} width="100%" height={300} role="img" aria-label="접근성-가격 산점도" />
+  if (!pts.length) return <div className="loading">실거래 데이터 불러오는 중…</div>
+  return <svg ref={ref} width="100%" height={300} role="img" aria-label="평단가-변동률 산점도" />
 }

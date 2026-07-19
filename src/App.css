@@ -129,6 +129,15 @@
   width: 100%;
 }
 
+.loading {
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .app__footer {
   margin-top: 28px;
   color: var(--muted);
