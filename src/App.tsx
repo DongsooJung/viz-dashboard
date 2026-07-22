@@ -33,7 +33,11 @@ function App() {
     <div className="app">
       <header className="app__header">
         <div>
-          <h1 className="app__title">서울 부동산 실거래 대시보드</h1>
+          <h1 className="app__title">
+            <a href="https://github.com/DongsooJung/viz-dashboard" target="_blank" rel="noreferrer">
+              서울 부동산 실거래 대시보드
+            </a>
+          </h1>
           <p className="app__desc">서울 열린데이터광장 아파트 실거래 · Recharts · D3 · Plotly</p>
         </div>
         <span className="app__stamp">Stargate · viz-dashboard</span>
@@ -58,14 +62,29 @@ function App() {
 
       <main className="grid">
         <div className="grid__wide">
-          <Panel title="서울 월별 아파트 거래" subtitle="거래량(막대) + 평단가 중앙값(영역)" badge="Recharts">
+          <Panel
+            title="서울 월별 아파트 거래"
+            titleHref="https://stargateedu.co.kr/stargate-visual/assets/seoul_monthly.json"
+            subtitle="거래량(막대) + 평단가 중앙값(영역)"
+            badge="Recharts"
+          >
             <RechartsPanel />
           </Panel>
         </div>
-        <Panel title="평단가 vs 전년 변동률" subtitle="자치구별 · OLS 회귀선" badge="D3">
+        <Panel
+          title="평단가 vs 전년 변동률"
+          titleHref="https://stargateedu.co.kr/stargate-visual/assets/gu_prices.json"
+          subtitle="자치구별 · OLS 회귀선"
+          badge="D3"
+        >
           <D3ScatterPanel />
         </Panel>
-        <Panel title="자치구 × 월 거래량" subtitle="거래량 상위 8개구 · 최근 6개월" badge="Plotly">
+        <Panel
+          title="자치구 × 월 거래량"
+          titleHref="https://stargateedu.co.kr/stargate-visual/assets/gu_heatmap.json"
+          subtitle="거래량 상위 8개구 · 최근 6개월"
+          badge="Plotly"
+        >
           <PlotlyHeatmapPanel />
         </Panel>
       </main>
