@@ -19,6 +19,22 @@
   letter-spacing: -0.02em;
 }
 
+.app__title a,
+.panel__title a {
+  color: var(--accent);
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.app__title a:hover,
+.app__title a:focus-visible,
+.panel__title a:hover,
+.panel__title a:focus-visible {
+  color: #79c0ff;
+  text-decoration: underline;
+}
+
 .app__desc {
   margin: 6px 0 0;
   color: var(--muted);
